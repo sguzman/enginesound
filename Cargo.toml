@@ -50,3 +50,6 @@ paste = "1.0.4"
 
 # cli #
 clap = "2.33.0"
+
+[patch.crates-io]
+copypasta = { path = "vendor/copypasta-0.6.3" }

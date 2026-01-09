@@ -102,6 +102,8 @@ For GUI audio playback on Linux, your user needs permission to access audio devi
 
 If you need to force the Wayland backend, set `WINIT_UNIX_BACKEND=wayland` before launching. The GUI also defaults to Wayland when `WAYLAND_DISPLAY` is present.
 
+Clipboard support currently prefers X11 (XWayland) to avoid mixed Wayland client versions; on pure Wayland sessions without XWayland, clipboard integration may be unavailable.
+
 ## Licensing
 
 MIT License
