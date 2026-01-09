@@ -34,7 +34,7 @@ glium = { version = "0.28.0", optional = true }
 conrod_core = { version = "0.71.0", optional = true }
 conrod_glium = { version = "0.71.0", optional = true }
 conrod_winit = { version = "0.71.0", optional = true }
-winit = "0.23.0"
+winit = { version = "0.23.0", features = ["x11", "wayland"] }
 native-dialog = "0.5.2"
 
 # fft #
