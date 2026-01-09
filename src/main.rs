@@ -7,20 +7,9 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 #[cfg(feature = "gui")]
-use crate::{
-    audio::GENERATOR_BUFFER_SIZE,
-    fft::FFTStreamer,
-    gui::{GUIState, WATERFALL_WIDTH},
-};
+use crate::{audio::GENERATOR_BUFFER_SIZE, fft::FFTStreamer, gui::WATERFALL_WIDTH};
 #[cfg(feature = "gui")]
-use conrod_core::text::Font;
-#[cfg(feature = "gui")]
-use glium::Surface;
-#[cfg(feature = "gui")]
-use winit::dpi::PhysicalSize;
-
-#[cfg(all(feature = "gui", target_os = "windows"))]
-use winit::platform::windows::WindowBuilderExtWindows;
+use eframe::egui;
 
 #[cfg(feature = "gui")]
 mod audio;
@@ -28,8 +17,6 @@ mod audio;
 mod fft;
 #[cfg(feature = "gui")]
 mod gui;
-#[cfg(feature = "gui")]
-mod support;
 
 mod constants;
 mod exactstreamer;
@@ -38,9 +25,9 @@ mod recorder;
 mod utils;
 
 #[cfg(feature = "gui")]
-const WINDOW_WIDTH: f64 = 800.0;
+const WINDOW_WIDTH: f32 = 800.0;
 #[cfg(feature = "gui")]
-const WINDOW_HEIGHT: f64 = 800.0;
+const WINDOW_HEIGHT: f32 = 800.0;
 
 const DEFAULT_CONFIG: &[u8] = include_bytes!("default.esc");
 
@@ -158,7 +145,7 @@ fn main() {
         recorder.record(output.to_vec());
         recorder.stop_wait();
     } else {
-        #[cfg(not(gui))]
+        #[cfg(not(feature = "gui"))]
         {
             eprintln!("Headless builds do not supply GUI");
         }
@@ -189,131 +176,35 @@ fn main() {
                 fft.run();
             });
 
-            // GUI
+            if std::env::var_os("WAYLAND_DISPLAY").is_some()
+                && std::env::var_os("WINIT_UNIX_BACKEND").is_none()
             {
-                if std::env::var_os("WAYLAND_DISPLAY").is_some()
-                    && std::env::var_os("WINIT_UNIX_BACKEND").is_none()
-                {
-                    std::env::set_var("WINIT_UNIX_BACKEND", "wayland");
-                }
-
-                let drag_and_drop = !matches.is_present("no-drag-drop");
-
-                // Build the window.
-                let mut events_loop = glium::glutin::event_loop::EventLoop::new();
-                let mut window = glium::glutin::window::WindowBuilder::new()
-                    .with_title("Engine Sound Generator")
-                    .with_inner_size::<PhysicalSize<u32>>((WINDOW_WIDTH, WINDOW_HEIGHT).into())
-                    .with_max_inner_size::<PhysicalSize<u32>>(
-                        (WINDOW_WIDTH, WINDOW_HEIGHT + 1000.0).into(),
-                    )
-                    .with_min_inner_size::<PhysicalSize<u32>>((WINDOW_WIDTH, WINDOW_HEIGHT).into())
-                    .with_resizable(true);
-
-                #[cfg(target_os = "windows")]
-                {
-                    window = window.with_drag_and_drop(drag_and_drop);
-                }
-                #[cfg(not(target_os = "windows"))]
-                if drag_and_drop {
-                    eprintln!("Drag-and-Drop is only supported on windows");
-                }
-
-                let context = glium::glutin::ContextBuilder::new()
-                    .with_vsync(true)
-                    .with_multisampling(4);
-                let display = glium::Display::new(window, context, &events_loop).unwrap();
-
-                let display = support::GliumDisplayWinitWrapper(display);
-
-                let mut ui = conrod_core::UiBuilder::new([WINDOW_WIDTH, WINDOW_HEIGHT])
-                    .theme(gui::theme())
-                    .build();
-                let ids = gui::Ids::new(ui.widget_id_generator());
-
-                ui.fonts.insert(
-                    Font::from_bytes(&include_bytes!("../fonts/NotoSans/NotoSans-Regular.ttf")[..])
-                        .unwrap(),
-                );
-
-                let mut gui_state = GUIState::new(gui_fft_receiver);
-
-                let mut renderer = conrod_glium::Renderer::new(display.get()).unwrap();
-
-                let mut event_loop = support::EventLoop::new();
-                'main: loop {
-                    event_loop.needs_update();
-                    for event in event_loop.next(&mut events_loop).iter() {
-                        {
-                            use glium::glutin as winit;
-
-                            if let Some(event) =
-                                conrod_winit::v023_convert_event!(event.clone(), &display)
-                            {
-                                ui.handle_event(event);
-                            }
-                        }
-
-                        if let glium::glutin::event::Event::WindowEvent { event, .. } = event {
-                            match event {
-                                glium::glutin::event::WindowEvent::DroppedFile(path) => {
-                                    if let Some(path) = path.to_str() {
-                                        match crate::load_engine(
-                                            path,
-                                            sample_rate,
-                                            path.ends_with("json"),
-                                        ) {
-                                            Ok(new_engine) => {
-                                                println!(
-                                                    "Successfully loaded engine config \"{}\"",
-                                                    &path
-                                                );
-                                                generator.write().engine = new_engine;
-                                            }
-                                            Err(e) => {
-                                                eprintln!(
-                                                    "Failed to load engine config \"{}\": {}",
-                                                    path, e
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                                glium::glutin::event::WindowEvent::CloseRequested
-                                | glium::glutin::event::WindowEvent::KeyboardInput {
-                                    input:
-                                        glium::glutin::event::KeyboardInput {
-                                            virtual_keycode:
-                                                Some(glium::glutin::event::VirtualKeyCode::Escape),
-                                            ..
-                                        },
-                                    ..
-                                } => break 'main,
-                                _ => (),
-                            }
-                        }
-                    }
-
-                    let image_map = gui::gui(
-                        &mut ui.set_widgets(),
-                        &ids,
-                        generator.clone(),
-                        &mut gui_state,
-                        display.get(),
-                    );
-
-                    let primitives = ui.draw();
-
-                    renderer.fill(&display.0, primitives, &image_map);
-                    let mut target = display.0.draw();
-                    target.clear_color(0.0, 0.0, 0.0, 1.0);
-                    renderer.draw(&display.0, &mut target, &image_map).unwrap();
-                    target.finish().unwrap();
-                }
+                std::env::set_var("WINIT_UNIX_BACKEND", "wayland");
             }
 
-            // audio lives until here
-            std::mem::drop(audio);
+            let allow_drag_drop = !matches.is_present("no-drag-drop");
+            let app = gui::EngineSoundApp::new(
+                generator.clone(),
+                gui_fft_receiver,
+                audio,
+                sample_rate,
+                allow_drag_drop,
+            );
+
+            let options = eframe::NativeOptions {
+                viewport: egui::ViewportBuilder::default()
+                    .with_title("Engine Sound Generator")
+                    .with_inner_size([WINDOW_WIDTH, WINDOW_HEIGHT]),
+                ..Default::default()
+            };
+
+            if let Err(e) = eframe::run_native(
+                "Engine Sound Generator",
+                options,
+                Box::new(|_cc| Ok(Box::new(app))),
+            ) {
+                eprintln!("Failed to start GUI: {e}");
+            }
         }
     }
 }

@@ -19,7 +19,7 @@ loosely based on [this paper](https://www.researchgate.net/publication/280086598
 
 #### GUI specific
 * Compilation of the GUI is enabled by default ("gui" feature, use `--no-default-features` to disable)
-* GUI made with conrod/glium
+* GUI made with egui/eframe
 * Real-time preview of parameters with `cpal` audio streaming
 * Real-time interactive parameter sliders with small descriptions
 * Record/Stop button
@@ -101,8 +101,6 @@ For Wayland, ensure the Wayland development headers are installed (package names
 For GUI audio playback on Linux, your user needs permission to access audio devices (ALSA/Pulse/PipeWire). In sandboxed environments you may see `snd_pcm_open` EPERM; run with device access or use headless mode.
 
 If you need to force the Wayland backend, set `WINIT_UNIX_BACKEND=wayland` before launching. The GUI also defaults to Wayland when `WAYLAND_DISPLAY` is present.
-
-Clipboard support currently prefers X11 (XWayland) to avoid mixed Wayland client versions; on pure Wayland sessions without XWayland, clipboard integration may be unavailable.
 
 ## Licensing
 
