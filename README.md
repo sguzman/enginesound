@@ -100,6 +100,8 @@ For Wayland, ensure the Wayland development headers are installed (package names
 
 For GUI audio playback on Linux, your user needs permission to access audio devices (ALSA/Pulse/PipeWire). In sandboxed environments you may see `snd_pcm_open` EPERM; run with device access or use headless mode.
 
+If you need to force the Wayland backend, set `WINIT_UNIX_BACKEND=wayland` before launching. The GUI also defaults to Wayland when `WAYLAND_DISPLAY` is present.
+
 ## Licensing
 
 MIT License

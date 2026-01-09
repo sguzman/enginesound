@@ -191,6 +191,12 @@ fn main() {
 
             // GUI
             {
+                if std::env::var_os("WAYLAND_DISPLAY").is_some()
+                    && std::env::var_os("WINIT_UNIX_BACKEND").is_none()
+                {
+                    std::env::set_var("WINIT_UNIX_BACKEND", "wayland");
+                }
+
                 let drag_and_drop = !matches.is_present("no-drag-drop");
 
                 // Build the window.
