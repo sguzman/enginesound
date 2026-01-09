@@ -96,6 +96,8 @@ enginesound.exe -h -c config_file.esc -o output_file.wav -f $fade_length -l $len
 On Ubuntu, these dependencies must be installed for the crate to compile (thanks, [leosh64](https://github.com/leosh64)):
 `sudo apt-get install libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev`
 
+For Wayland, ensure the Wayland development headers are installed (package names vary by distro, e.g. `libwayland-dev` on Ubuntu).
+
 ## Licensing
 
 MIT License
