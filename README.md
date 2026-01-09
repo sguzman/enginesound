@@ -98,6 +98,8 @@ On Ubuntu, these dependencies must be installed for the crate to compile (thanks
 
 For Wayland, ensure the Wayland development headers are installed (package names vary by distro, e.g. `libwayland-dev` on Ubuntu).
 
+For GUI audio playback on Linux, your user needs permission to access audio devices (ALSA/Pulse/PipeWire). In sandboxed environments you may see `snd_pcm_open` EPERM; run with device access or use headless mode.
+
 ## Licensing
 
 MIT License

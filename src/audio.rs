@@ -5,6 +5,7 @@ use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{BufferSize, Host, SampleRate, StreamConfig};
 use parking_lot::RwLock;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub const GENERATOR_BUFFER_SIZE: usize = 256;
 pub const GENERATOR_CHANNEL_SIZE: usize = 6;
@@ -35,7 +36,10 @@ pub fn init(
             sample_rate
         );
 
-        println!("Audio output device: {}", speaker.name().unwrap());
+        let speaker_name = speaker
+            .name()
+            .map_err(|e| format!("Failed to read audio output device name: {}", e))?;
+        println!("Audio output device: {}", speaker_name);
 
         let stream_config = StreamConfig {
             sample_rate: SampleRate(sample_rate),
@@ -70,9 +74,11 @@ pub fn init(
                     println!("== An error occurred during audio playback: {:?}", e);
                 },
             )
-            .expect("Failed to build audio output stream");
+            .map_err(|e| format!("Failed to build audio output stream: {}", e))?;
 
-        speaker_stream.play().expect("Failed to play stream");
+        speaker_stream
+            .play()
+            .map_err(|e| format!("Failed to play stream: {}", e))?;
 
         std::thread::spawn({
             move || {
@@ -97,6 +103,37 @@ pub fn init(
         std::mem::forget(speaker_stream);
 
         Ok((Audio, fft_receiver))
+    })
+    .join()
+    .unwrap()
+}
+
+/// starts generator + FFT data without opening an audio output device
+pub fn init_no_output(
+    gen: Arc<RwLock<Generator>>,
+    sample_rate: u32,
+) -> (Audio, crossbeam_channel::Receiver<Vec<f32>>) {
+    std::thread::spawn(move || {
+        let (generator_fft_sender, fft_receiver) =
+            crossbeam_channel::bounded(GENERATOR_CHANNEL_SIZE);
+        let buffer_delay = Duration::from_secs_f32(
+            GENERATOR_BUFFER_SIZE as f32 / sample_rate.max(1) as f32,
+        );
+
+        std::thread::spawn(move || {
+            let mut buf = [0.0f32; GENERATOR_BUFFER_SIZE];
+
+            loop {
+                {
+                    gen.write().generate(&mut buf);
+                }
+
+                let _ = generator_fft_sender.try_send(buf.to_vec());
+                std::thread::sleep(buffer_delay);
+            }
+        });
+
+        (Audio, fft_receiver)
     })
     .join()
     .unwrap()

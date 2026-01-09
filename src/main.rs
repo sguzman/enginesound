@@ -169,8 +169,9 @@ fn main() {
             let (audio, fft_receiver) = match audio::init(generator.clone(), sample_rate) {
                 Ok(audio) => audio,
                 Err(e) => {
-                    eprintln!("Failed to initialize SDL2 audio: {}", e);
-                    std::process::exit(3);
+                    eprintln!("Failed to initialize audio output: {}", e);
+                    eprintln!("Continuing without audio playback.");
+                    audio::init_no_output(generator.clone(), sample_rate)
                 }
             };
 
